@@ -1,46 +1,67 @@
-import { Component, HostListener, computed, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Product, ProductCategory, ProductService } from '../services/product.service';
 
-export interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-  category: string;
-}
-
-export interface CategoryItem {
+export interface CategoryGroup {
   name: string;
   icon: string;
-  count?: string;
-  subcategories: string[];
+  slugs: string[];
 }
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
 })
 export class Navbar {
+  readonly productService = inject(ProductService);
+
   // Navigation & Drawer States
   readonly isMobileMenuOpen = signal(false);
   readonly isCategoriesDropdownOpen = signal(false);
   readonly isUserMenuOpen = signal(false);
   readonly isCartDrawerOpen = signal(false);
+  readonly isWishlistDrawerOpen = signal(false);
   readonly isMobileCategoriesExpanded = signal(false);
 
   // Search state
-  readonly searchQuery = signal('');
   readonly isSearchFocused = signal(false);
+  readonly addedNotification = signal<string | null>(null);
 
   // Active navigation link
   readonly activeNav = signal<string>('Home');
 
-  // Notification badges
-  readonly wishlistCount = signal(3);
+  // Curated category departments mapped to DummyJSON slugs
+  readonly categoryGroups: CategoryGroup[] = [
+    {
+      name: 'Electronics & Tech',
+      icon: 'laptop',
+      slugs: ['laptops', 'smartphones', 'tablets', 'mobile-accessories'],
+    },
+    {
+      name: 'Fashion & Apparel',
+      icon: 'shirt',
+      slugs: ['mens-shirts', 'mens-shoes', 'mens-watches', 'womens-dresses', 'womens-shoes', 'womens-watches', 'womens-bags', 'womens-jewellery', 'tops', 'sunglasses'],
+    },
+    {
+      name: 'Beauty & Wellness',
+      icon: 'sparkles',
+      slugs: ['beauty', 'fragrances', 'skin-care'],
+    },
+    {
+      name: 'Home & Living',
+      icon: 'armchair',
+      slugs: ['furniture', 'home-decoration', 'kitchen-accessories', 'groceries'],
+    },
+    {
+      name: 'Sports & Motors',
+      icon: 'activity',
+      slugs: ['sports-accessories', 'motorcycle', 'vehicle'],
+    },
+  ];
 
   // Nav Links matching mockups
   readonly navLinks = [
@@ -51,94 +72,15 @@ export class Navbar {
     { label: 'Best Sellers', hasDropdown: false },
   ];
 
-  // Category data matching mockups
-  readonly categories: CategoryItem[] = [
-    {
-      name: 'Electronics',
-      icon: 'laptop',
-      subcategories: ['Wireless Headphones', 'Laptops & PCs', 'Smart Watches', 'Tablets', 'Bluetooth Speakers'],
-    },
-    {
-      name: 'Fashion',
-      icon: 'shirt',
-      subcategories: ["Men's Wear", "Women's Wear", 'Sneakers & Shoes', 'Accessories', 'Watches'],
-    },
-    {
-      name: 'Home & Living',
-      icon: 'armchair',
-      subcategories: ['Modern Furniture', 'Decorative Lighting', 'Kitchen & Dining', 'Bedding'],
-    },
-    {
-      name: 'Beauty & Health',
-      icon: 'sparkles',
-      subcategories: ['Luxury Perfumes', 'Skin Care', 'Organic Cosmetics', 'Hair Wellness'],
-    },
-    {
-      name: 'Sports & Outdoors',
-      icon: 'activity',
-      subcategories: ['Athletic Shoes', 'Fitness Gear', 'Outdoor & Camping', 'Yoga & Wellness'],
-    },
-    {
-      name: 'Toys & Games',
-      icon: 'gamepad-2',
-      subcategories: ['Video Gaming', 'Board Games', 'Collectible Figures', 'Creative Puzzles'],
-    },
-    {
-      name: 'Books & Stationery',
-      icon: 'book-open',
-      subcategories: ['Bestsellers', 'Art & Design', 'Journals & Planners', 'Gift Sets'],
-    },
-  ];
-
-  // Cart Items matching design screen 4
-  readonly cartItems = signal<CartItem[]>([
-    {
-      id: 1,
-      name: 'Wireless Headphones',
-      price: 59.99,
-      quantity: 1,
-      image: '🎧',
-      category: 'Electronics',
-    },
-    {
-      id: 2,
-      name: 'Smart Watch',
-      price: 89.99,
-      quantity: 1,
-      image: '⌚',
-      category: 'Electronics',
-    },
-    {
-      id: 3,
-      name: 'Running Shoes',
-      price: 49.99,
-      quantity: 1,
-      image: '👟',
-      category: 'Fashion',
-    },
-  ]);
-
-  // Computed Cart values
-  readonly cartCount = computed(() =>
-    this.cartItems().reduce((total, item) => total + item.quantity, 0)
-  );
-
-  readonly subtotal = computed(() =>
-    this.cartItems().reduce((total, item) => total + item.price * item.quantity, 0)
-  );
-
-  readonly shipping = computed(() => (this.subtotal() > 50 ? 0 : 9.99));
-
-  readonly total = computed(() => this.subtotal() + this.shipping());
-
-  // Search trending recommendations
+  // Search trending recommendations from DummyJSON
   readonly trendingSearches = [
-    'Wireless Headphones',
-    'Smart Watch',
-    'AirPods',
-    'Dior Sauvage',
-    'Air Jordan 1',
-    'MacBook Pro',
+    'Mascara',
+    'Perfume',
+    'MacBook',
+    'Sneakers',
+    'Sunglasses',
+    'Lipstick',
+    'Watch',
   ];
 
   // User Profile information matching dashboard mockup
@@ -148,9 +90,17 @@ export class Navbar {
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
   };
 
-  // Promo code signal
+  // Promo code
   readonly promoCode = signal('');
   readonly promoApplied = signal(false);
+
+  // Helper to format category slug into nice human title
+  formatSlug(slug: string): string {
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
 
   // Toggle Methods
   toggleMobileMenu(): void {
@@ -197,6 +147,17 @@ export class Navbar {
     this.isCartDrawerOpen.set(false);
   }
 
+  toggleWishlistDrawer(): void {
+    this.isWishlistDrawerOpen.update((v) => !v);
+    if (this.isWishlistDrawerOpen()) {
+      this.closeOtherMenus(['wishlist']);
+    }
+  }
+
+  closeWishlistDrawer(): void {
+    this.isWishlistDrawerOpen.set(false);
+  }
+
   toggleMobileCategories(): void {
     this.isMobileCategoriesExpanded.update((v) => !v);
   }
@@ -210,38 +171,68 @@ export class Navbar {
     }
   }
 
-  // Cart operations
-  incrementQuantity(id: number): void {
-    this.cartItems.update((items) =>
-      items.map((item) => (item.id === id ? { ...item, quantity: item.quantity + 1 } : item))
-    );
-  }
-
-  decrementQuantity(id: number): void {
-    this.cartItems.update((items) =>
-      items
-        .map((item) => (item.id === id ? { ...item, quantity: item.quantity - 1 } : item))
-        .filter((item) => item.quantity > 0)
-    );
-  }
-
-  removeItem(id: number): void {
-    this.cartItems.update((items) => items.filter((item) => item.id !== id));
-  }
-
   // Search actions
   onSearchInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    this.searchQuery.set(value);
+    this.productService.setSearchQuery(value);
   }
 
   selectTrendingSearch(term: string): void {
-    this.searchQuery.set(term);
+    this.productService.setSearchQuery(term);
     this.isSearchFocused.set(false);
   }
 
   clearSearch(): void {
-    this.searchQuery.set('');
+    this.productService.clearSearch();
+  }
+
+  onSelectCategory(slug: string): void {
+    this.productService.selectCategory(slug);
+    this.closeCategoriesDropdown();
+    this.closeMobileMenu();
+    this.isSearchFocused.set(false);
+  }
+
+  // Cart operations via service
+  addToCart(product: Product, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.productService.addToCart(product);
+    this.showAddedNotification(product.title);
+  }
+
+  incrementQuantity(id: number): void {
+    this.productService.updateQuantity(id, 1);
+  }
+
+  decrementQuantity(id: number): void {
+    this.productService.updateQuantity(id, -1);
+  }
+
+  removeItem(id: number): void {
+    this.productService.removeFromCart(id);
+  }
+
+  // Wishlist actions via service
+  toggleWishlist(product: Product, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.productService.toggleWishlist(product);
+  }
+
+  isInWishlist(id: number): boolean {
+    return this.productService.isInWishlist(id);
+  }
+
+  moveWishlistToCart(product: Product): void {
+    this.productService.addToCart(product);
+    this.productService.toggleWishlist(product);
+    this.showAddedNotification(product.title);
+  }
+
+  private showAddedNotification(title: string): void {
+    this.addedNotification.set(`Added "${title}" to cart`);
+    setTimeout(() => {
+      this.addedNotification.set(null);
+    }, 2800);
   }
 
   applyPromo(): void {
@@ -255,14 +246,15 @@ export class Navbar {
     if (!except.includes('categories')) this.isCategoriesDropdownOpen.set(false);
     if (!except.includes('user')) this.isUserMenuOpen.set(false);
     if (!except.includes('cart')) this.isCartDrawerOpen.set(false);
+    if (!except.includes('wishlist')) this.isWishlistDrawerOpen.set(false);
   }
 
-  // Close open dropdowns when clicking outside or pressing Escape
   @HostListener('document:keydown.escape')
   handleEscape(): void {
     this.closeCategoriesDropdown();
     this.closeUserMenu();
     this.closeCartDrawer();
+    this.closeWishlistDrawer();
     this.closeMobileMenu();
     this.isSearchFocused.set(false);
   }
