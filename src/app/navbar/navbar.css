@@ -1,0 +1,31 @@
+/* Custom animations for drawers and dropdowns */
+:host {
+  display: block;
+  width: 100%;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.slide-in-from-left {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-in-from-right {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}

@@ -1,3 +1,64 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+@theme {
+  --color-brand-teal-950: #07181c;
+  --color-brand-teal-900: #0c262d;
+  --color-brand-teal-800: #123842;
+  --color-brand-teal-700: #174a57;
+  --color-brand-teal-600: #1f6172;
+  --color-brand-teal-500: #14b8a6;
+  --color-brand-teal-400: #2dd4bf;
+  --color-brand-teal-100: #ccfbf1;
+  --color-brand-teal-50: #f0fdfa;
+
+  --color-brand-gold-600: #b3891d;
+  --color-brand-gold-500: #c59b27;
+  --color-brand-gold-400: #d4a373;
+  --color-brand-gold-300: #e5be90;
+  --color-brand-gold-100: #fbf0e4;
+  --color-brand-gold-50: #fdfaf6;
+
+  --color-brand-sand-50: #fcfaf7;
+  --color-brand-sand-100: #f5efe6;
+  --color-brand-sand-200: #eae0d0;
+  --color-brand-sand-300: #d8c7af;
+}
+
+:root {
+  --brand-primary: #0c262d;
+  --brand-primary-light: #123842;
+  --brand-gold: #c59b27;
+  --brand-sand: #f5efe6;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  min-height: 100vh;
+}
+
+/* Custom smooth transitions and scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
