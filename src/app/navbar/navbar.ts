@@ -1,7 +1,9 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Product, ProductCategory, ProductService } from '../services/product.service';
+import { Router, RouterLink } from '@angular/router';
+import { Product, ProductService } from '../services/product.service';
+import { AuthService } from '../services/auth.service';
 
 export interface CategoryGroup {
   name: string;
@@ -12,12 +14,14 @@ export interface CategoryGroup {
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
 })
 export class Navbar {
   readonly productService = inject(ProductService);
+  readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   // Navigation & Drawer States
   readonly isMobileMenuOpen = signal(false);
@@ -83,16 +87,21 @@ export class Navbar {
     'Watch',
   ];
 
-  // User Profile information matching dashboard mockup
-  readonly currentUser = {
-    name: 'Anjali Gupta',
-    email: 'anjali@example.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-  };
+  // User Profile information — live from AuthService when logged in
+  get currentUser(): { name: string; email: string; avatar: string } {
+    const u = this.auth.currentUser();
+    if (u) return { name: u.name, email: u.email, avatar: u.avatar || '' };
+    return {
+      name: 'Guest',
+      email: 'Login to unlock cart & wishlist',
+      avatar: 'https://ui-avatars.com/api/?name=G&background=0f3d3e&color=ffd166&bold=true',
+    };
+  }
 
   // Promo code
   readonly promoCode = signal('');
   readonly promoApplied = signal(false);
+  readonly promoError = signal<string | null>(null);
 
   // Helper to format category slug into nice human title
   formatSlug(slug: string): string {
@@ -137,6 +146,12 @@ export class Navbar {
   }
 
   toggleCartDrawer(): void {
+    // Cart is an extra feature — guests are sent to login first.
+    if (!this.auth.isAuthenticated()) {
+      this.auth.requireLogin(this.router.url);
+      this.showAddedNotification('Please login to view your cart');
+      return;
+    }
     this.isCartDrawerOpen.update((v) => !v);
     if (this.isCartDrawerOpen()) {
       this.closeOtherMenus(['cart']);
@@ -148,6 +163,11 @@ export class Navbar {
   }
 
   toggleWishlistDrawer(): void {
+    if (!this.auth.isAuthenticated()) {
+      this.auth.requireLogin(this.router.url);
+      this.showAddedNotification('Please login to view your wishlist');
+      return;
+    }
     this.isWishlistDrawerOpen.update((v) => !v);
     if (this.isWishlistDrawerOpen()) {
       this.closeOtherMenus(['wishlist']);
@@ -164,11 +184,83 @@ export class Navbar {
 
   setActiveNav(link: string): void {
     this.activeNav.set(link);
-    if (link === 'Categories') {
-      this.toggleCategoriesDropdown();
-    } else {
-      this.closeCategoriesDropdown();
+    // Every nav link now performs a real action (previously Deals / New Arrivals /
+    // Best Sellers only highlighted and did nothing).
+    switch (link) {
+      case 'Home':
+        this.closeCategoriesDropdown();
+        this.goHome();
+        break;
+      case 'Categories':
+        this.toggleCategoriesDropdown();
+        break;
+      case 'Deals':
+        this.closeCategoriesDropdown();
+        this.shopView('deals');
+        break;
+      case 'New Arrivals':
+        this.closeCategoriesDropdown();
+        this.shopView('new');
+        break;
+      case 'Best Sellers':
+        this.closeCategoriesDropdown();
+        this.shopView('top');
+        break;
+      default:
+        this.closeCategoriesDropdown();
     }
+  }
+
+  /** Home: clear filters, go to `/`, scroll to top. */
+  goHome(): void {
+    this.activeNav.set('Home');
+    this.productService.clearShopFilter();
+    this.closeCategoriesDropdown();
+    this.closeMobileMenu();
+    if (this.router.url !== '/') {
+      this.router.navigate(['/']).then(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  /** Deals / New Arrivals / Best Sellers — real API-backed filters + scroll to grid. */
+  shopView(mode: 'deals' | 'new' | 'top'): void {
+    this.activeNav.set(mode === 'deals' ? 'Deals' : mode === 'new' ? 'New Arrivals' : 'Best Sellers');
+    if (mode === 'deals') this.productService.showDeals();
+    else if (mode === 'new') this.productService.showNewArrivals();
+    else this.productService.showBestSellers();
+    this.closeCategoriesDropdown();
+    this.closeMobileMenu();
+    this.isSearchFocused.set(false);
+    this.scrollToFeatured();
+  }
+
+  /** Scroll to the Featured grid, navigating home first when on another route. */
+  scrollToFeatured(): void {
+    if (this.router.url !== '/') {
+      this.router.navigate(['/']).then(() => this.scrollToId('featured-products'));
+    } else {
+      this.scrollToId('featured-products');
+    }
+  }
+
+  /** Scroll to the Categories section (works on mobile too). */
+  scrollToCategories(): void {
+    this.isSearchFocused.set(false);
+    this.closeMobileMenu();
+    if (this.router.url !== '/') {
+      this.router.navigate(['/']).then(() => this.scrollToId('shop-categories'));
+    } else {
+      this.scrollToId('shop-categories');
+    }
+  }
+
+  private scrollToId(id: string): void {
+    // Wait a tick so navigation / rendering finishes before scrolling.
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   }
 
   // Search actions
@@ -191,13 +283,14 @@ export class Navbar {
     this.closeCategoriesDropdown();
     this.closeMobileMenu();
     this.isSearchFocused.set(false);
+    this.scrollToFeatured();
   }
 
   // Cart operations via service
   addToCart(product: Product, event?: Event): void {
     if (event) event.stopPropagation();
-    this.productService.addToCart(product);
-    this.showAddedNotification(product.title);
+    const added = this.productService.addToCart(product);
+    if (added) this.showAddedNotification(product.title);
   }
 
   incrementQuantity(id: number): void {
@@ -223,7 +316,8 @@ export class Navbar {
   }
 
   moveWishlistToCart(product: Product): void {
-    this.productService.addToCart(product);
+    const added = this.productService.addToCart(product);
+    if (!added) return;
     this.productService.toggleWishlist(product);
     this.showAddedNotification(product.title);
   }
@@ -236,9 +330,35 @@ export class Navbar {
   }
 
   applyPromo(): void {
-    if (this.promoCode().trim().toUpperCase() === 'WELCOME10') {
+    const code = this.promoCode().trim().toUpperCase();
+    if (code === 'WELCOME10') {
       this.promoApplied.set(true);
+      this.promoError.set(null);
+    } else if (!code) {
+      this.promoError.set('Enter a promo code first.');
+    } else {
+      this.promoApplied.set(false);
+      this.promoError.set(`"${this.promoCode().trim()}" is not valid. Try WELCOME10.`);
     }
+  }
+
+  goToLogin(): void {
+    this.closeUserMenu();
+    this.closeMobileMenu();
+    this.auth.requireLogin(this.router.url);
+  }
+
+  logout(): void {
+    this.closeUserMenu();
+    this.closeCartDrawer();
+    this.closeWishlistDrawer();
+    this.auth.logout();
+  }
+
+  checkout(): void {
+    if (!this.auth.requireLogin('/checkout')) return;
+    this.closeCartDrawer();
+    this.router.navigate(['/checkout']);
   }
 
   private closeOtherMenus(except: string[]): void {

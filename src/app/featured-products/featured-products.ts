@@ -34,21 +34,35 @@ export class FeaturedProducts {
   onTabClick(slug: string): void {
     this.activeTab.set(slug);
     if (slug === 'all') {
-      this.productService.selectCategory(null);
+      this.productService.clearShopFilter();
     } else {
       this.productService.selectCategory(slug);
     }
   }
 
+  /** Clears Deals / New / Top banner back to the default grid. */
+  clearShopView(): void {
+    this.activeTab.set('all');
+    this.productService.clearShopFilter();
+  }
+
+  retryLoad(): void {
+    this.productService.loadFeaturedProducts(
+      this.productService.selectedCategory(),
+      this.productService.shopSort() === 'default' &&
+        !this.productService.selectedCategory() ? 8 : 30
+    );
+  }
+
   addToCart(product: Product, event?: Event): void {
     if (event) event.stopPropagation();
-    this.productService.addToCart(product);
-    this.showAddedToast(product.title);
+    const added = this.productService.addToCart(product);
+    if (added) this.showAddedToast(product.title);
   }
 
   addToCartWithQuantity(product: Product): void {
     for (let i = 0; i < this.modalQuantity(); i++) {
-      this.productService.addToCart(product);
+      if (!this.productService.addToCart(product)) return;
     }
     this.showAddedToast(`${this.modalQuantity()}x "${product.title}" added to cart`);
     this.modalQuantity.set(1);

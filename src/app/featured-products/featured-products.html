@@ -1,5 +1,5 @@
 <!-- Featured Products Section (Matches UI Mockup Screen 1) -->
-<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-16">
+<section id="featured-products" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-16 scroll-mt-32">
   
   <!-- Section Header -->
   <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
@@ -43,10 +43,45 @@
         </div>
       }
     </div>
+  } @else if (productService.featuredError()) {
+    <!-- Error state with retry (was previously a silent empty grid) -->
+    <div class="py-12 text-center bg-white rounded-3xl border border-slate-100">
+      <p class="text-base font-bold text-slate-800">Couldn't load products</p>
+      <p class="text-xs text-slate-500 mt-1">{{ productService.featuredError() }}</p>
+      <button (click)="retryLoad()" type="button"
+        class="mt-4 px-5 py-2.5 bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-xs font-bold rounded-xl transition-colors">
+        Try Again
+      </button>
+    </div>
   } @else {
+    <!-- Active shop-view banner (Deals / New Arrivals / Best Sellers) -->
+    @if (productService.activeShopLabel()) {
+      <div class="mb-6 p-3 rounded-2xl bg-brand-gold-500/10 border border-brand-gold-500/30 flex items-center justify-between animate-in fade-in duration-200">
+        <p class="text-sm text-brand-teal-950 font-medium">
+          Showing: <strong class="font-bold">{{ productService.activeShopLabel() }}</strong>
+        </p>
+        <button (click)="clearShopView()" class="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1">
+          <span>Clear</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    }
+
+    @if (productService.displayProducts().length === 0) {
+      <div class="py-12 text-center bg-white rounded-3xl border border-slate-100">
+        <p class="text-base font-bold text-slate-800">No products found</p>
+        <p class="text-xs text-slate-500 mt-1">Try a different category or view.</p>
+        <button (click)="clearShopView()" type="button"
+          class="mt-4 px-5 py-2.5 bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-xs font-bold rounded-xl transition-colors">
+          Show All Products
+        </button>
+      </div>
+    } @else {
     <!-- Products Cards Grid (4 Columns as in Mockup Screen 1) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      @for (product of productService.featuredProducts(); track product.id) {
+      @for (product of productService.displayProducts(); track product.id) {
         <div 
           (click)="openQuickView(product)"
           class="group bg-white rounded-3xl p-4 border border-slate-100/90 shadow-xs hover:shadow-xl hover:border-brand-sand-300 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between cursor-pointer">
@@ -156,6 +191,7 @@
         </div>
       }
     </div>
+    }
   }
 
 </section>
@@ -169,6 +205,12 @@
       </svg>
     </div>
     <span class="text-xs font-semibold">{{ addedToast() }}</span>
+  </div>
+}
+
+@if (productService.authRequiredMessage()) {
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-brand-teal-950 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+    <span class="text-xs font-bold">{{ productService.authRequiredMessage() }}</span>
   </div>
 }
 

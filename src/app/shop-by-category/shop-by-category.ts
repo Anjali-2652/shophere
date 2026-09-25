@@ -102,6 +102,12 @@ export class ShopByCategory {
       this.productService.selectCategory(slug);
     }
     this.isViewAllOpen.set(false);
+    // Bring the filtered grid into view so the selection visibly does something.
+    setTimeout(() => {
+      document
+        .getElementById('featured-products')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   }
 
   toggleViewAll(): void {

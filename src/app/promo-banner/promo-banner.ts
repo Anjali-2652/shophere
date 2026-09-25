@@ -66,9 +66,8 @@ export class PromoBanner implements OnInit, OnDestroy {
   }
 
   scrollToFeatured(): void {
-    window.scrollTo({
-      top: 600,
-      behavior: 'smooth',
-    });
+    document
+      .getElementById('featured-products')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
