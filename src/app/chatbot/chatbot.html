@@ -1,0 +1,149 @@
+<!-- Floating shopping assistant -->
+<div class="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-3">
+
+  <!-- Proactive teaser bubble -->
+  @if (showTeaser() && !isOpen()) {
+    <button (click)="toggle()" type="button"
+      class="max-w-[240px] text-left bg-white rounded-2xl rounded-bl-md shadow-2xl border border-slate-100 px-4 py-3 text-xs text-slate-700 hover:shadow-xl transition-shadow animate-in slide-in-from-bottom duration-200">
+      <span class="font-bold text-slate-900 block mb-0.5">Need help finding something?</span>
+      Ask me about products, prices or deals.
+      <span class="absolute -bottom-1 left-8 w-3 h-3"></span>
+    </button>
+  }
+
+  <!-- Chat panel -->
+  @if (isOpen()) {
+    <div class="w-[92vw] max-w-sm h-[540px] max-h-[70vh] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in slide-in-from-bottom zoom-in-95 duration-200">
+
+      <!-- Header -->
+      <div class="px-5 py-4 bg-gradient-to-r from-brand-teal-950 via-brand-teal-900 to-brand-teal-950 flex items-center gap-3 shrink-0">
+        <div class="relative">
+          <div class="w-10 h-10 rounded-full bg-brand-gold-500/20 border border-brand-gold-500/40 flex items-center justify-center">
+            <svg class="w-5 h-5 text-brand-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
+          <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-brand-teal-950"></span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-extrabold text-white leading-tight">ShopEase Assistant</p>
+          <p class="text-[11px] text-emerald-300 font-medium">Online • answers from live catalog</p>
+        </div>
+        <button (click)="close()" type="button" aria-label="Close chat"
+          class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div #scrollBox class="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50">
+        @for (msg of messages(); track msg.id) {
+          @if (msg.from === 'user') {
+            <div class="flex justify-end">
+              <p class="max-w-[80%] px-3.5 py-2.5 rounded-2xl rounded-br-md bg-brand-teal-900 text-white text-[13px] leading-relaxed">{{ msg.text }}</p>
+            </div>
+          } @else {
+            <div class="flex justify-start">
+              <div class="max-w-[88%] space-y-2">
+                <p class="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-white border border-slate-100 shadow-xs text-[13px] text-slate-700 leading-relaxed">{{ msg.text }}</p>
+
+                <!-- Product cards -->
+                @if (msg.products?.length) {
+                  <div class="space-y-2">
+                    @for (p of msg.products; track p.id) {
+                      <div class="bg-white rounded-2xl border border-slate-100 shadow-xs p-2.5 flex items-center gap-3">
+                        <img [src]="p.thumbnail" [alt]="p.title" class="w-12 h-12 rounded-xl object-contain bg-slate-50 border border-slate-100 p-1 shrink-0" loading="lazy" />
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-bold text-slate-900 truncate" [title]="p.title">{{ p.title }}</p>
+                          <p class="text-[11px] text-slate-500">
+                            <span class="text-amber-500 font-semibold">★ {{ p.rating }}</span>
+                            <span class="mx-1">•</span>
+                            <span class="font-bold text-brand-teal-900">${{ p.price.toFixed(2) }}</span>
+                          </p>
+                          <div class="flex gap-1.5 mt-1.5">
+                            <button (click)="addToCart(p, $event)" type="button"
+                              class="px-2.5 py-1 rounded-lg bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-[11px] font-bold transition-colors">Add</button>
+                            <button (click)="viewProduct(p)" type="button"
+                              class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold hover:bg-slate-50 transition-colors">View</button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <!-- Action chips -->
+                @if (msg.actions?.length) {
+                  <div class="flex flex-wrap gap-1.5">
+                    @for (a of msg.actions; track a.label) {
+                      <button (click)="onAction(a)" type="button"
+                        class="px-3 py-1.5 rounded-full bg-brand-teal-50 hover:bg-brand-teal-900 hover:text-white text-brand-teal-900 border border-brand-teal-100 text-[11px] font-bold transition-colors">
+                        {{ a.label }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        }
+
+        <!-- Typing indicator -->
+        @if (isTyping()) {
+          <div class="flex justify-start">
+            <div class="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-slate-100 shadow-xs flex items-center gap-1.5">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Quick chips -->
+      <div class="px-3 pt-2 pb-1 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+        @for (chip of quickChips; track chip) {
+          <button (click)="sendText(chip)" type="button"
+            class="whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-100 hover:bg-brand-sand-200 text-slate-700 text-[11px] font-bold transition-colors">
+            {{ chip }}
+          </button>
+        }
+      </div>
+
+      <!-- Input -->
+      <form (ngSubmit)="onSubmit()" class="p-3 bg-white flex gap-2 shrink-0">
+        <input type="text" name="chat-input" autocomplete="off"
+          placeholder="Ask for a product, price, deal..."
+          [ngModel]="input()" (ngModelChange)="input.set($event)"
+          class="flex-1 px-4 py-2.5 text-[13px] rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600 transition-all" />
+        <button type="submit" aria-label="Send message"
+          class="w-10 h-10 rounded-2xl bg-brand-teal-900 hover:bg-brand-teal-800 text-white flex items-center justify-center transition-colors shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  }
+
+  <!-- Floating launcher -->
+  <button (click)="toggle()" type="button" aria-label="Open shopping assistant"
+    class="relative w-14 h-14 rounded-full bg-gradient-to-br from-brand-teal-900 via-brand-teal-800 to-brand-teal-950 text-white shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform">
+    @if (isOpen()) {
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    } @else {
+      <svg class="w-6 h-6 text-brand-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    }
+    @if (unread() > 0 && !isOpen()) {
+      <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+        {{ unread() }}
+      </span>
+    }
+  </button>
+</div>
