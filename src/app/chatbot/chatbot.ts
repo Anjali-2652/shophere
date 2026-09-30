@@ -107,15 +107,12 @@ export class Chatbot implements OnInit {
         this.router.navigate([action.value]);
         break;
       case 'view':
-        this.applyShopView(action.value);
+        this.close();
+        this.router.navigate([this.viewRoute(action.value)]);
         break;
       case 'category':
-        this.pushUser(action.label);
-        this.isTyping.set(true);
-        this.chat.browseCategory(action.value, action.label).subscribe((reply) => {
-          this.isTyping.set(false);
-          this.pushBot(reply);
-        });
+        this.close();
+        this.router.navigate(['/category', action.value]);
         break;
       case 'search':
         this.sendText(action.value);
@@ -136,47 +133,14 @@ export class Chatbot implements OnInit {
   }
 
   viewProduct(product: Product): void {
-    // Quick-view lives on the home page — go there first when elsewhere.
-    if (this.router.url !== '/') {
-      this.close();
-      this.router.navigate(['/']).then(() =>
-        setTimeout(() => {
-          this.products.openQuickView(product);
-          document.getElementById('featured-products')?.scrollIntoView({ behavior: 'smooth' });
-        }, 120)
-      );
-    } else {
-      this.products.openQuickView(product);
-    }
+    // Full routed details page: /product/:id
+    this.router.navigate(['/product', product.id]);
   }
 
-  private applyShopView(mode: string): void {
-    if (mode === 'deals') this.products.showDeals();
-    else if (mode === 'new') this.products.showNewArrivals();
-    else this.products.showBestSellers();
-    this.pushBot({
-      text:
-        mode === 'deals'
-          ? 'I have applied the Deals view on the product grid — biggest discounts first.'
-          : mode === 'new'
-            ? 'I have applied the New Arrivals view on the product grid.'
-            : 'I have applied the Best Sellers view on the product grid — top rated first.',
-    });
-    if (this.router.url !== '/') {
-      this.router.navigate(['/']).then(() => this.scrollToGrid());
-    } else {
-      this.scrollToGrid();
-    }
-  }
-
-  private scrollToGrid(): void {
-    setTimeout(() => {
-      document.getElementById('featured-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 120);
-  }
-
-  private pushUser(text: string): void {
-    this.messages.update((m) => [...m, { id: this.nextId++, from: 'user', text }]);
+  private viewRoute(mode: string): string {
+    if (mode === 'new') return '/new-arrivals';
+    if (mode === 'top') return '/best-sellers';
+    return '/deals';
   }
 
   private pushBot(reply: BotReply): void {

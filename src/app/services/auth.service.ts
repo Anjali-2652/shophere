@@ -1,12 +1,25 @@
 import { Injectable, computed, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
 
+export type UserRole = 'admin' | 'user';
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   avatar?: string;
   createdAt: string;
+  role: UserRole;
+}
+
+/** Public user record for the admin panel (never includes the password hash). */
+export interface AdminUserView {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  isCurrentSession: boolean;
 }
 
 interface StoredUser extends AuthUser {
@@ -23,6 +36,10 @@ const USERS_KEY = 'shopease_users';
 const SESSION_KEY = 'shopease_auth_token';
 const USER_KEY = 'shopease_auth_user';
 const EXPIRY_KEY = 'shopease_auth_expires_at';
+
+/** Default admin account seeded on first run (demo credentials). */
+export const DEMO_ADMIN_EMAIL = 'admin@shopease.com';
+export const DEMO_ADMIN_PASSWORD = 'admin123';
 
 // Simple (non-secure, demo-only) hash — avoids storing plain passwords in localStorage.
 function hashPassword(password: string): string {
@@ -63,10 +80,14 @@ export class AuthService {
 
   readonly isLoggedIn = computed(() => !!this.currentUser() && !!this.token());
 
+  /** True when the logged-in user is an admin. */
+  readonly isAdmin = computed(() => this.currentUser()?.role === 'admin');
+
   /** Where to send the user after a successful login (set by guard / gated actions). */
   readonly redirectUrl = signal<string | null>(null);
 
   constructor() {
+    this.ensureSeedAdmin();
     this.restoreSession();
   }
 
@@ -102,11 +123,12 @@ export class AuthService {
       email,
       avatar: defaultAvatar(name),
       createdAt: new Date().toISOString(),
+      role: 'user',
       passwordHash: hashPassword(password),
     };
     users.push(user);
     this.writeUsers(users);
-    this.startSession({ id: user.id, name: user.name, email: user.email, avatar: user.avatar, createdAt: user.createdAt });
+    this.startSession(this.toAuthUser(user));
     return true;
   }
 
@@ -125,7 +147,7 @@ export class AuthService {
       this.authError.set('Invalid email or password.');
       return false;
     }
-    this.startSession({ id: found.id, name: found.name, email: found.email, avatar: found.avatar, createdAt: found.createdAt });
+    this.startSession(this.toAuthUser(found));
     return true;
   }
 
@@ -179,6 +201,47 @@ export class AuthService {
     this.router?.navigateByUrl(url);
   }
 
+  // ---------- Admin: user management (all data lives in localStorage) ----------
+
+  /** All registered users (password hashes never leave the service). */
+  getAllUsers(): AdminUserView[] {
+    const currentId = this.currentUser()?.id;
+    return this.readUsers().map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role ?? 'user',
+      createdAt: u.createdAt,
+      isCurrentSession: u.id === currentId,
+    }));
+  }
+
+  /**
+   * Change a user's role. Returns false when refused
+   * (target missing, or trying to change your own role while logged in).
+   */
+  setUserRole(id: string, role: UserRole): boolean {
+    if (id === this.currentUser()?.id) return false;
+    const users = this.readUsers();
+    const found = users.find((u) => u.id === id);
+    if (!found) return false;
+    found.role = role;
+    this.writeUsers(users);
+    return true;
+  }
+
+  /**
+   * Delete a user account. Returns false when refused
+   * (target missing, or trying to delete your own logged-in account).
+   */
+  deleteUser(id: string): boolean {
+    if (id === this.currentUser()?.id) return false;
+    const users = this.readUsers();
+    if (!users.some((u) => u.id === id)) return false;
+    this.writeUsers(users.filter((u) => u.id !== id));
+    return true;
+  }
+
   // ---------- Session internals ----------
 
   /** Token lifetime: 7 days (sliding not implemented — re-login after expiry). */
@@ -209,8 +272,11 @@ export class AuthService {
         this.clearExpiredSession();
         return;
       }
+      const parsed = JSON.parse(rawUser) as AuthUser;
+      // Backfill role for sessions saved before roles existed.
+      if (!parsed.role) parsed.role = 'user';
       this.token.set(token);
-      this.currentUser.set(JSON.parse(rawUser) as AuthUser);
+      this.currentUser.set(parsed);
     } catch {
       return;
     }
@@ -241,7 +307,9 @@ export class AuthService {
       const raw = localStorage.getItem(USERS_KEY);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      // Backfill role for accounts created before roles existed.
+      return (parsed as StoredUser[]).map((u) => ({ ...u, role: u.role ?? 'user' }));
     } catch {
       return [];
     }
@@ -251,5 +319,32 @@ export class AuthService {
     try {
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
     } catch { /* ignore */ }
+  }
+
+  private toAuthUser(u: StoredUser): AuthUser {
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      avatar: u.avatar,
+      createdAt: u.createdAt,
+      role: u.role ?? 'user',
+    };
+  }
+
+  /** Seeds the default admin account on first run (demo credentials). */
+  private ensureSeedAdmin(): void {
+    const users = this.readUsers();
+    if (users.some((u) => u.email === DEMO_ADMIN_EMAIL)) return;
+    users.push({
+      id: 'u_admin_seed',
+      name: 'Store Admin',
+      email: DEMO_ADMIN_EMAIL,
+      avatar: defaultAvatar('Store Admin'),
+      createdAt: new Date().toISOString(),
+      role: 'admin',
+      passwordHash: hashPassword(DEMO_ADMIN_PASSWORD),
+    });
+    this.writeUsers(users);
   }
 }

@@ -37,8 +37,8 @@
         </svg>
         <span>Filtered by category: <strong class="font-bold uppercase text-brand-teal-900">{{ formatSlug(selectedCategory()!) }}</strong></span>
       </div>
-      <button 
-        (click)="selectCategory(selectedCategory()!)" 
+      <button
+        (click)="clearFilter()"
         class="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1">
         <span>Clear Filter</span>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

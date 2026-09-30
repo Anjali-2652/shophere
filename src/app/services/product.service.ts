@@ -1,8 +1,16 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap } from 'rxjs';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from './auth.service';
+
+export interface ProductReview {
+  rating: number;
+  comment: string;
+  date: string;
+  reviewerName: string;
+  reviewerEmail: string;
+}
 
 export interface Product {
   id: number;
@@ -15,6 +23,15 @@ export interface Product {
   stock: number;
   tags?: string[];
   brand?: string;
+  sku?: string;
+  weight?: number;
+  dimensions?: { width: number; height: number; depth: number };
+  warrantyInformation?: string;
+  shippingInformation?: string;
+  availabilityStatus?: string;
+  returnPolicy?: string;
+  minimumOrderQuantity?: number;
+  reviews?: ProductReview[];
   thumbnail: string;
   images?: string[];
   meta?: {
@@ -39,6 +56,21 @@ export interface ProductsResponse {
 export interface CartProduct extends Product {
   quantity: number;
 }
+
+/** Form payload for admin add/edit product. */
+export interface CustomProductInput {
+  title: string;
+  description: string;
+  category: string;
+  price: number;
+  discountPercentage?: number;
+  rating?: number;
+  stock?: number;
+  brand?: string;
+  thumbnail: string;
+}
+
+const CUSTOM_PRODUCTS_KEY = 'shopease_custom_products';
 
 // DummyJSON cart API response types
 export interface CartApiProduct {
@@ -79,48 +111,10 @@ export class ProductService {
   readonly isSearching = signal(false);
   readonly searchResults = signal<Product[]>([]);
 
-  // Featured Products state
+  // Featured Products state (home grid; category tabs filter this grid locally)
   readonly featuredProducts = signal<Product[]>([]);
   readonly isLoadingFeatured = signal(false);
   readonly selectedCategory = signal<string | null>(null);
-
-  /**
-   * Shop view mode — all backed by real DummyJSON fields:
-   * deals = discountPercentage, new = meta.createdAt, top = rating.
-   */
-  readonly shopSort = signal<'default' | 'deals' | 'new' | 'top'>('default');
-
-  /** Products actually rendered in the Featured grid (filtered/sorted client-side). */
-  readonly displayProducts = computed(() => {
-    const list = [...this.featuredProducts()];
-    switch (this.shopSort()) {
-      case 'deals':
-        return list
-          .filter((p) => p.discountPercentage > 5)
-          .sort((a, b) => b.discountPercentage - a.discountPercentage)
-          .slice(0, 12);
-      case 'new':
-        return list
-          .sort(
-            (a, b) =>
-              +new Date(b.meta?.createdAt ?? 0) - +new Date(a.meta?.createdAt ?? 0)
-          )
-          .slice(0, 12);
-      case 'top':
-        return list.sort((a, b) => b.rating - a.rating).slice(0, 12);
-      default:
-        return list.slice(0, 8);
-    }
-  });
-
-  readonly activeShopLabel = computed(() => {
-    switch (this.shopSort()) {
-      case 'deals': return 'Deals (biggest discounts)';
-      case 'new': return 'New Arrivals (latest products)';
-      case 'top': return 'Best Sellers (top rated)';
-      default: return null;
-    }
-  });
 
   // Modal Quick View State
   readonly quickViewProduct = signal<Product | null>(null);
@@ -135,6 +129,13 @@ export class ProductService {
 
   /** Set when a guest tries an action that needs login (surfaced as a toast). */
   readonly authRequiredMessage = signal<string | null>(null);
+
+  /**
+   * Admin-added products, persisted in localStorage.
+   * They are merged into the storefront (home grid, category pages,
+   * ranked views and /product/:id) alongside the live DummyJSON catalog.
+   */
+  readonly customProducts = signal<Product[]>([]);
 
   // Cart Computed Metrics
   readonly cartCount = computed(() =>
@@ -152,6 +153,7 @@ export class ProductService {
   readonly total = computed(() => this.subtotal() + this.shipping());
 
   constructor() {
+    this.loadCustomProducts();
     this.loadCategories();
     this.setupLiveSearch();
     this.loadFeaturedProducts();
@@ -167,12 +169,9 @@ export class ProductService {
       }
     });
 
-    // Reactively reload featured products when category / view mode changes.
-    // Filtered views fetch a bigger pool so client-side sort/filter is meaningful.
+    // Reactively reload the home grid when its category tab changes.
     effect(() => {
-      const cat = this.selectedCategory();
-      const sort = this.shopSort();
-      this.loadFeaturedProducts(cat, sort === 'default' && !cat ? 8 : 30);
+      this.loadFeaturedProducts(this.selectedCategory());
     });
   }
 
@@ -214,7 +213,9 @@ export class ProductService {
         return of({ products: [], total: 0, skip: 0, limit: 0 });
       })
     ).subscribe((res) => {
-      this.featuredProducts.set(res.products || []);
+      // Admin-added products lead the grid (filtered by category when active).
+      const customs = this.matchingCustoms(categorySlug);
+      this.featuredProducts.set([...customs, ...(res.products || [])].slice(0, limit));
       this.isLoadingFeatured.set(false);
     });
   }
@@ -360,31 +361,144 @@ export class ProductService {
     return this.wishlistItems().some((i) => i.id === id);
   }
 
-  // Category filter — picking a category resets the Deals/New/Top view.
+  // Category filter for the HOME grid tabs.
   selectCategory(categorySlug: string | null): void {
     this.selectedCategory.set(categorySlug);
-    this.shopSort.set('default');
-  }
-
-  // Shop views backed by real API fields (discountPercentage / meta.createdAt / rating).
-  showDeals(): void {
-    this.selectedCategory.set(null);
-    this.shopSort.set('deals');
-  }
-
-  showNewArrivals(): void {
-    this.selectedCategory.set(null);
-    this.shopSort.set('new');
-  }
-
-  showBestSellers(): void {
-    this.selectedCategory.set(null);
-    this.shopSort.set('top');
   }
 
   /** Back to the plain homepage grid. */
   clearShopFilter(): void {
     this.selectedCategory.set(null);
-    this.shopSort.set('default');
+  }
+
+  // ---------- Single-product / catalog queries (used by routed pages) ----------
+
+  /** One product by id — admin-added products resolve locally, rest via API. */
+  getProduct(id: number | string): Observable<Product> {
+    const custom = this.customProducts().find((p) => p.id === Number(id));
+    if (custom) return of(custom);
+    return this.http.get<Product>(`${this.baseUrl}/${id}`);
+  }
+
+  /** All products of a category — admin-added matches lead the list. */
+  getCategoryProducts(categorySlug: string, limit = 24): Observable<ProductsResponse> {
+    return this.http.get<ProductsResponse>(
+      `${this.baseUrl}/category/${encodeURIComponent(categorySlug)}?limit=${limit}`
+    ).pipe(
+      map((res) => {
+        const customs = this.matchingCustoms(categorySlug);
+        const products = [...customs, ...(res.products ?? [])].slice(0, limit + customs.length);
+        return { ...res, products, total: (res.total ?? 0) + customs.length };
+      })
+    );
+  }
+
+  /** Live text search — backs the navbar flyout, chatbot and admin browser. */
+  searchProducts(term: string, limit = 8): Observable<ProductsResponse> {
+    return this.http.get<ProductsResponse>(
+      `${this.baseUrl}/search?q=${encodeURIComponent(term)}&limit=${limit}`
+    );
+  }
+
+  /** A pool of products for client-side ranked views (deals / new / top). */
+  getProductPool(limit = 60): Observable<ProductsResponse> {
+    return this.http.get<ProductsResponse>(`${this.baseUrl}?limit=${limit}`).pipe(
+      map((res) => ({
+        ...res,
+        products: [...this.customProducts(), ...(res.products ?? [])],
+      }))
+    );
+  }
+
+  // ---------- Admin-added products (localStorage) ----------
+
+  /** Admin-added products of a category (or all when no slug). */
+  matchingCustoms(categorySlug?: string | null): Product[] {
+    const customs = this.customProducts();
+    if (!categorySlug) return customs;
+    return customs.filter((p) => p.category === categorySlug);
+  }
+
+  /** Add a store product (admin). Persists to localStorage, returns the product. */
+  addCustomProduct(input: CustomProductInput): Product {
+    const now = new Date().toISOString();
+    const product: Product = {
+      id: Date.now(),
+      title: input.title.trim(),
+      description: input.description.trim(),
+      category: input.category,
+      price: Number(input.price),
+      discountPercentage: Number(input.discountPercentage ?? 0),
+      rating: Number(input.rating ?? 4.5),
+      stock: Number(input.stock ?? 10),
+      brand: input.brand?.trim() || undefined,
+      thumbnail: input.thumbnail.trim(),
+      images: [input.thumbnail.trim()],
+      tags: ['store'],
+      availabilityStatus: Number(input.stock ?? 10) > 0 ? 'In Stock' : 'Out of Stock',
+      returnPolicy: '30 days return policy',
+      meta: { createdAt: now, updatedAt: now },
+    };
+    this.customProducts.update((list) => [product, ...list]);
+    this.persistCustomProducts();
+    return product;
+  }
+
+  /** Modify an admin-added product. Returns false when the id is unknown. */
+  updateCustomProduct(id: number, patch: Partial<CustomProductInput>): boolean {
+    let found = false;
+    this.customProducts.update((list) =>
+      list.map((p) => {
+        if (p.id !== id) return p;
+        found = true;
+        const next: Product = {
+          ...p,
+          title: patch.title?.trim() || p.title,
+          description: patch.description?.trim() || p.description,
+          category: patch.category || p.category,
+          price: patch.price !== undefined ? Number(patch.price) : p.price,
+          discountPercentage: patch.discountPercentage !== undefined ? Number(patch.discountPercentage) : p.discountPercentage,
+          rating: patch.rating !== undefined ? Number(patch.rating) : p.rating,
+          stock: patch.stock !== undefined ? Number(patch.stock) : p.stock,
+          brand: patch.brand !== undefined ? patch.brand.trim() || undefined : p.brand,
+          thumbnail: patch.thumbnail?.trim() || p.thumbnail,
+          meta: { createdAt: p.meta?.createdAt ?? new Date().toISOString(), updatedAt: new Date().toISOString() },
+        };
+        next.images = [next.thumbnail];
+        next.availabilityStatus = next.stock > 0 ? 'In Stock' : 'Out of Stock';
+        return next;
+      })
+    );
+    if (found) this.persistCustomProducts();
+    return found;
+  }
+
+  /** Delete an admin-added product (also drops it from carts/wishlists). */
+  deleteCustomProduct(id: number): boolean {
+    const exists = this.customProducts().some((p) => p.id === id);
+    if (!exists) return false;
+    this.customProducts.update((list) => list.filter((p) => p.id !== id));
+    this.cartItems.update((items) => items.filter((i) => i.id !== id));
+    this.wishlistItems.update((items) => items.filter((i) => i.id !== id));
+    this.persistCustomProducts();
+    return true;
+  }
+
+  private loadCustomProducts(): void {
+    try {
+      const raw = localStorage.getItem(CUSTOM_PRODUCTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      this.customProducts.set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      this.customProducts.set([]);
+    }
+  }
+
+  private persistCustomProducts(): void {
+    try {
+      localStorage.setItem(CUSTOM_PRODUCTS_KEY, JSON.stringify(this.customProducts()));
+    } catch { /* ignore */ }
+    // Refresh the home grid so additions/edits show up immediately.
+    this.loadFeaturedProducts(this.selectedCategory());
   }
 }

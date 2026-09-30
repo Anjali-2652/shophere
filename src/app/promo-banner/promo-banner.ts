@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ProductService } from '../services/product.service';
+import { Router } from '@angular/router';
+import { saveSubscriber } from '../services/newsletter.store';
 
 @Component({
   selector: 'app-promo-banner',
@@ -11,7 +12,7 @@ import { ProductService } from '../services/product.service';
   styleUrl: './promo-banner.css',
 })
 export class PromoBanner implements OnInit, OnDestroy {
-  readonly productService = inject(ProductService);
+  private readonly router = inject(Router);
 
   // Countdown timer state
   readonly hours = signal(23);
@@ -25,6 +26,7 @@ export class PromoBanner implements OnInit, OnDestroy {
   // Newsletter email state
   readonly newsletterEmail = signal('');
   readonly subscribed = signal(false);
+  readonly subscribeError = signal<string | null>(null);
 
   ngOnInit(): void {
     this.timerInterval = setInterval(() => {
@@ -56,12 +58,20 @@ export class PromoBanner implements OnInit, OnDestroy {
   }
 
   onSubscribe(): void {
-    if (this.newsletterEmail().trim() && this.newsletterEmail().includes('@')) {
+    const email = this.newsletterEmail().trim();
+    if (!email || !email.includes('@')) {
+      this.subscribeError.set('Enter a valid email address.');
+      return;
+    }
+    if (saveSubscriber(email)) {
+      this.subscribeError.set(null);
       this.subscribed.set(true);
       this.newsletterEmail.set('');
       setTimeout(() => {
         this.subscribed.set(false);
       }, 5000);
+    } else {
+      this.subscribeError.set('Could not save. Please try again.');
     }
   }
 
@@ -69,5 +79,10 @@ export class PromoBanner implements OnInit, OnDestroy {
     document
       .getElementById('featured-products')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Explore Top Deals → routed deals page. */
+  exploreTopDeals(): void {
+    this.router.navigate(['/deals']);
   }
 }

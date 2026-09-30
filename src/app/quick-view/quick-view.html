@@ -1,0 +1,142 @@
+<!-- Quick View Modal (global — opened from any product card on any route) -->
+@if (productService.quickViewProduct(); as product) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <!-- Backdrop Overlay -->
+    <div
+      (click)="close()"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity">
+    </div>
+
+    <!-- Modal Card Window -->
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-8 z-50 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+
+      <!-- Close Button -->
+      <button
+        (click)="close()"
+        type="button"
+        class="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-hidden">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
+        <!-- Product Image Preview -->
+        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-6 flex items-center justify-center min-h-[260px]">
+          <img
+            [src]="product.thumbnail"
+            [alt]="product.title"
+            class="max-h-64 object-contain drop-shadow-md"
+          />
+        </div>
+
+        <!-- Product Details -->
+        <div>
+          <!-- Tags / Category -->
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-brand-teal-700 bg-brand-teal-50 px-2.5 py-0.5 rounded-full">
+              {{ product.category }}
+            </span>
+            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+              In Stock
+            </span>
+          </div>
+
+          <!-- Title -->
+          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
+            {{ product.title }}
+          </h2>
+
+          <!-- Rating -->
+          <div class="flex items-center gap-2 mb-4">
+            <div class="flex text-amber-400">
+              @for (star of [1,2,3,4,5]; track star) {
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                </svg>
+              }
+            </div>
+            <span class="text-xs font-bold text-slate-700">{{ product.rating }}</span>
+            <span class="text-xs text-slate-400">(1.2k customer reviews)</span>
+          </div>
+
+          <!-- Price -->
+          <div class="flex items-baseline gap-3 mb-4">
+            <span class="text-3xl font-extrabold text-brand-teal-950">
+              ${{ product.price.toFixed(2) }}
+            </span>
+            @if (product.discountPercentage > 0) {
+              <span class="text-sm text-slate-400 line-through">
+                {{ formatOriginalPrice(product.price, product.discountPercentage) }}
+              </span>
+              <span class="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">
+                -{{ product.discountPercentage | number:'1.0-0' }}% OFF
+              </span>
+            }
+          </div>
+
+          <!-- Description -->
+          <p class="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+            {{ product.description }}
+          </p>
+
+          <!-- Quantity Selector -->
+          <div class="flex items-center gap-4 mb-6">
+            <span class="text-xs font-semibold text-slate-700">Quantity:</span>
+            <div class="flex items-center border border-slate-200 rounded-xl bg-slate-50">
+              <button
+                (click)="decrementQty()"
+                type="button"
+                class="px-3 py-1.5 text-sm font-bold text-slate-600 hover:text-slate-900">
+                -
+              </button>
+              <span class="px-4 text-sm font-bold text-slate-900">{{ modalQuantity() }}</span>
+              <button
+                (click)="incrementQty()"
+                type="button"
+                class="px-3 py-1.5 text-sm font-bold text-slate-600 hover:text-slate-900">
+                +
+              </button>
+            </div>
+          </div>
+
+          <!-- Actions: Add to Cart & Wishlist -->
+          <div class="flex gap-3">
+            <button
+              (click)="addToCartWithQuantity(product)"
+              type="button"
+              class="flex-1 py-3 px-4 bg-brand-teal-900 hover:bg-brand-teal-800 text-white font-bold text-sm rounded-xl shadow-lg shadow-brand-teal-950/20 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span>Add to Cart</span>
+            </button>
+
+            <button
+              (click)="toggleWishlist(product)"
+              type="button"
+              aria-label="Wishlist"
+              class="p-3 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-rose-500 transition-colors">
+              <svg
+                [class.fill-rose-500]="isInWishlist(product.id)"
+                [class.text-rose-500]="isInWishlist(product.id)"
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Full details link -->
+          <button (click)="openFullDetails(product)" type="button"
+            class="mt-4 text-xs font-bold text-brand-teal-700 hover:underline">
+            View full details &rarr;
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+}

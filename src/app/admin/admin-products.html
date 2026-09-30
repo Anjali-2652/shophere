@@ -1,0 +1,201 @@
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Products</h1>
+    <p class="text-sm text-slate-500">Add, modify or delete store products (saved in localStorage and shown on the site).</p>
+  </div>
+  <button (click)="openAdd()" type="button"
+    class="px-5 py-2.5 bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-sm font-bold rounded-xl shadow-md transition-colors">
+    + Add Product
+  </button>
+</div>
+
+@if (notice()) {
+  <div class="mb-4 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium">
+    {{ notice() }}
+  </div>
+}
+
+<!-- Store-added products -->
+<div class="bg-white rounded-3xl border border-slate-100 p-5 mb-6">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-sm font-extrabold text-slate-900">Store Products ({{ filteredCustoms().length }})</h2>
+    <input type="text" placeholder="Filter by name or category..."
+      [ngModel]="searchFilter()" (ngModelChange)="searchFilter.set($event)"
+      class="px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600 w-56" />
+  </div>
+
+  @if (filteredCustoms().length === 0) {
+    <div class="py-8 text-center">
+      <p class="text-sm font-bold text-slate-800">No store products yet</p>
+      <p class="text-xs text-slate-500 mt-1">Click "Add Product" — it appears on the home grid, category pages and search instantly.</p>
+    </div>
+  } @else {
+    <div class="overflow-x-auto -mx-5 px-5">
+      <table class="w-full text-xs min-w-[640px]">
+        <thead>
+          <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+            <th class="py-2 pr-3 font-bold">Product</th>
+            <th class="py-2 pr-3 font-bold">Category</th>
+            <th class="py-2 pr-3 font-bold">Price</th>
+            <th class="py-2 pr-3 font-bold">Stock</th>
+            <th class="py-2 pr-3 font-bold text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (p of filteredCustoms(); track p.id) {
+            <tr>
+              <td class="py-2.5 pr-3">
+                <div class="flex items-center gap-3">
+                  <img [src]="p.thumbnail" [alt]="p.title" class="w-10 h-10 rounded-lg object-cover bg-slate-50 border border-slate-100 shrink-0" />
+                  <div class="min-w-0">
+                    <p class="font-bold text-slate-800 truncate max-w-[220px]">{{ p.title }}</p>
+                    <a [routerLink]="['/product', p.id]" class="text-[11px] text-brand-teal-700 hover:underline">View on site</a>
+                  </div>
+                </div>
+              </td>
+              <td class="py-2.5 pr-3 capitalize text-slate-600">{{ p.category }}</td>
+              <td class="py-2.5 pr-3 font-bold text-slate-800">${{ p.price.toFixed(2) }}</td>
+              <td class="py-2.5 pr-3">
+                <span class="px-2 py-0.5 rounded-full font-bold"
+                  [class.bg-emerald-50]="p.stock > 0" [class.text-emerald-600]="p.stock > 0"
+                  [class.bg-rose-50]="p.stock === 0" [class.text-rose-600]="p.stock === 0">{{ p.stock }}</span>
+              </td>
+              <td class="py-2.5 text-right whitespace-nowrap">
+                <button (click)="openEdit(p)" type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 mr-1.5">Edit</button>
+                <button (click)="askDelete(p)" type="button" class="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 font-bold hover:bg-rose-50">Delete</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<!-- Live catalog browser (read-only) -->
+<div class="bg-white rounded-3xl border border-slate-100 p-5">
+  <h2 class="text-sm font-extrabold text-slate-900 mb-1">Live Catalog (read-only)</h2>
+  <p class="text-[11px] text-slate-500 mb-3">DummyJSON is a shared demo API, so live items can't be edited here — search and preview them instead.</p>
+  <form (ngSubmit)="searchLive()" class="flex gap-2 mb-4">
+    <input type="text" name="live-q" placeholder="Search live catalog..."
+      [ngModel]="liveQuery()" (ngModelChange)="liveQuery.set($event)"
+      class="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+    <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors">
+      {{ isSearchingLive() ? '...' : 'Search' }}
+    </button>
+  </form>
+  @if (liveResults().length > 0) {
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      @for (p of liveResults(); track p.id) {
+        <a [routerLink]="['/product', p.id]" class="flex items-center gap-2.5 p-2 rounded-2xl border border-slate-100 hover:border-brand-teal-300 transition-colors">
+          <img [src]="p.thumbnail" [alt]="p.title" class="w-11 h-11 rounded-xl object-contain bg-slate-50 border border-slate-100 p-1 shrink-0" />
+          <div class="min-w-0">
+            <p class="text-xs font-bold text-slate-800 truncate">{{ p.title }}</p>
+            <p class="text-[11px] font-bold text-brand-teal-900">${{ p.price.toFixed(2) }}</p>
+          </div>
+        </a>
+      }
+    </div>
+  }
+</div>
+
+<!-- Add / Edit modal -->
+@if (isFormOpen()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div (click)="closeForm()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 z-50 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-extrabold text-slate-900 mb-1">{{ editingId() === null ? 'Add Product' : 'Edit Product' }}</h3>
+      <p class="text-xs text-slate-500 mb-4">Saved in localStorage and shown across the store immediately.</p>
+
+      @if (formError()) {
+        <div class="mb-4 px-4 py-2.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">{{ formError() }}</div>
+      }
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-title">Title *</label>
+          <input id="ap-title" type="text" [ngModel]="fTitle()" (ngModelChange)="fTitle.set($event)" placeholder="Handmade Ceramic Mug"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-cat">Category *</label>
+            <select id="ap-cat" [ngModel]="fCategory()" (ngModelChange)="fCategory.set($event)"
+              class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600">
+              @for (c of productService.categories(); track c.slug) {
+                <option [value]="c.slug">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-brand">Brand</label>
+            <input id="ap-brand" type="text" [ngModel]="fBrand()" (ngModelChange)="fBrand.set($event)" placeholder="MyBrand"
+              class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-price">Price ($) *</label>
+            <input id="ap-price" type="number" min="0.01" step="0.01" [ngModel]="fPrice()" (ngModelChange)="fPrice.set($event)" placeholder="29.99"
+              class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-disc">Discount %</label>
+            <input id="ap-disc" type="number" min="0" max="90" [ngModel]="fDiscount()" (ngModelChange)="fDiscount.set($event)"
+              class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-stock">Stock *</label>
+            <input id="ap-stock" type="number" min="0" step="1" [ngModel]="fStock()" (ngModelChange)="fStock.set($event)"
+              class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-img">Image URL *</label>
+          <div class="flex gap-2">
+            <input id="ap-img" type="url" [ngModel]="fImage()" (ngModelChange)="fImage.set($event)" placeholder="https://..."
+              class="flex-1 px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600" />
+            <label class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer whitespace-nowrap">
+              Upload
+              <input type="file" accept="image/*" (change)="onImageFile($event)" class="hidden" />
+            </label>
+          </div>
+          @if (fImage()) {
+            <img [src]="fImage()" alt="Preview" class="mt-2 w-20 h-20 rounded-xl object-cover border border-slate-200" />
+          }
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wider" for="ap-desc">Description *</label>
+          <textarea id="ap-desc" rows="3" [ngModel]="fDescription()" (ngModelChange)="fDescription.set($event)" placeholder="What makes this product great?"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-teal-600"></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5 mt-5">
+        <button (click)="save()" type="button"
+          class="flex-1 py-3 rounded-xl bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-sm font-bold transition-colors">
+          {{ editingId() === null ? 'Add Product' : 'Save Changes' }}
+        </button>
+        <button (click)="closeForm()" type="button"
+          class="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete confirm -->
+@if (deleteTarget(); as target) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div (click)="deleteTarget.set(null)" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"></div>
+    <div class="relative bg-white rounded-3xl shadow-2xl p-6 z-50 w-full max-w-sm text-center">
+      <p class="text-base font-extrabold text-slate-900">Delete product?</p>
+      <p class="text-xs text-slate-500 mt-1">"{{ target.title }}" will be removed from the store, carts and wishlists.</p>
+      <div class="flex gap-2.5 mt-5">
+        <button (click)="confirmDelete()" type="button" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition-colors">Delete</button>
+        <button (click)="deleteTarget.set(null)" type="button" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">Cancel</button>
+      </div>
+    </div>
+  </div>
+}

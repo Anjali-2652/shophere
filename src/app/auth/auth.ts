@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { AuthService, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from '../services/auth.service';
 
 type AuthMode = 'login' | 'register';
 
@@ -80,6 +80,14 @@ export class Auth {
     if (!this.authService.login(demoEmail, demoPass)) {
       this.authService.register('Demo User', demoEmail, demoPass);
     }
+    if (this.authService.isAuthenticated()) {
+      this.authService.redirectAfterLogin();
+    }
+  }
+
+  fillDemoAdmin(): void {
+    // One-click admin demo (seeded admin account).
+    this.authService.login(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD);
     if (this.authService.isAuthenticated()) {
       this.authService.redirectAfterLogin();
     }

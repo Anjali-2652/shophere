@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ProductCategory, ProductService } from '../services/product.service';
 
 export interface FeaturedCategory {
@@ -22,6 +23,7 @@ export interface FeaturedCategory {
 })
 export class ShopByCategory {
   readonly productService = inject(ProductService);
+  private readonly router = inject(Router);
 
   // View all modal state
   readonly isViewAllOpen = signal(false);
@@ -96,18 +98,9 @@ export class ShopByCategory {
   readonly selectedCategory = this.productService.selectedCategory;
 
   selectCategory(slug: string): void {
-    if (this.selectedCategory() === slug) {
-      this.productService.selectCategory(null);
-    } else {
-      this.productService.selectCategory(slug);
-    }
     this.isViewAllOpen.set(false);
-    // Bring the filtered grid into view so the selection visibly does something.
-    setTimeout(() => {
-      document
-        .getElementById('featured-products')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
+    // Dedicated routed page: /category/:slug
+    this.router.navigate(['/category', slug]);
   }
 
   toggleViewAll(): void {
@@ -116,6 +109,11 @@ export class ShopByCategory {
 
   closeViewAll(): void {
     this.isViewAllOpen.set(false);
+  }
+
+  /** Clears the home-grid category filter (used by the active-filter banner). */
+  clearFilter(): void {
+    this.productService.selectCategory(null);
   }
 
   formatSlug(slug: string): string {

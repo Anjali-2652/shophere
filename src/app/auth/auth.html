@@ -95,6 +95,11 @@
         Continue with demo account
       </button>
 
+      <button type="button" (click)="fillDemoAdmin()"
+        class="w-full mt-2 py-2.5 rounded-2xl border border-dashed border-brand-teal-300 text-brand-teal-800 text-sm font-bold hover:bg-brand-teal-50 transition-colors">
+        Login as demo admin
+      </button>
+
       <p class="text-center text-xs text-slate-500 mt-5">
         {{ mode() === 'login' ? "New here?" : 'Already have an account?' }}
         <button type="button" (click)="setMode(mode() === 'login' ? 'register' : 'login')"

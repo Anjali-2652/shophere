@@ -184,8 +184,7 @@ export class Navbar {
 
   setActiveNav(link: string): void {
     this.activeNav.set(link);
-    // Every nav link now performs a real action (previously Deals / New Arrivals /
-    // Best Sellers only highlighted and did nothing).
+    // Every nav link routes to a real page.
     switch (link) {
       case 'Home':
         this.closeCategoriesDropdown();
@@ -196,15 +195,18 @@ export class Navbar {
         break;
       case 'Deals':
         this.closeCategoriesDropdown();
-        this.shopView('deals');
+        this.closeMobileMenu();
+        this.router.navigate(['/deals']);
         break;
       case 'New Arrivals':
         this.closeCategoriesDropdown();
-        this.shopView('new');
+        this.closeMobileMenu();
+        this.router.navigate(['/new-arrivals']);
         break;
       case 'Best Sellers':
         this.closeCategoriesDropdown();
-        this.shopView('top');
+        this.closeMobileMenu();
+        this.router.navigate(['/best-sellers']);
         break;
       default:
         this.closeCategoriesDropdown();
@@ -224,25 +226,23 @@ export class Navbar {
     }
   }
 
-  /** Deals / New Arrivals / Best Sellers — real API-backed filters + scroll to grid. */
-  shopView(mode: 'deals' | 'new' | 'top'): void {
-    this.activeNav.set(mode === 'deals' ? 'Deals' : mode === 'new' ? 'New Arrivals' : 'Best Sellers');
-    if (mode === 'deals') this.productService.showDeals();
-    else if (mode === 'new') this.productService.showNewArrivals();
-    else this.productService.showBestSellers();
-    this.closeCategoriesDropdown();
+  /** Deals / New Arrivals / Best Sellers mobile actions → routed pages. */
+  goDeals(): void {
+    this.activeNav.set('Deals');
     this.closeMobileMenu();
-    this.isSearchFocused.set(false);
-    this.scrollToFeatured();
+    this.router.navigate(['/deals']);
   }
 
-  /** Scroll to the Featured grid, navigating home first when on another route. */
-  scrollToFeatured(): void {
-    if (this.router.url !== '/') {
-      this.router.navigate(['/']).then(() => this.scrollToId('featured-products'));
-    } else {
-      this.scrollToId('featured-products');
-    }
+  goNewArrivals(): void {
+    this.activeNav.set('New Arrivals');
+    this.closeMobileMenu();
+    this.router.navigate(['/new-arrivals']);
+  }
+
+  goBestSellers(): void {
+    this.activeNav.set('Best Sellers');
+    this.closeMobileMenu();
+    this.router.navigate(['/best-sellers']);
   }
 
   /** Scroll to the Categories section (works on mobile too). */
@@ -283,7 +283,17 @@ export class Navbar {
     this.closeCategoriesDropdown();
     this.closeMobileMenu();
     this.isSearchFocused.set(false);
-    this.scrollToFeatured();
+    // Dedicated routed page: /category/:slug
+    this.router.navigate(['/category', slug]);
+  }
+
+  /** Open the routed product details page: /product/:id */
+  openProduct(id: number): void {
+    this.isSearchFocused.set(false);
+    this.closeCartDrawer();
+    this.closeWishlistDrawer();
+    this.closeMobileMenu();
+    this.router.navigate(['/product', id]);
   }
 
   // Cart operations via service

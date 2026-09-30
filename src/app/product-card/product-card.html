@@ -1,0 +1,110 @@
+<div
+  (click)="openDetails()"
+  (keydown.enter)="openDetails()"
+  tabindex="0"
+  role="link"
+  class="group bg-white rounded-3xl p-4 border border-slate-100/90 shadow-xs hover:shadow-xl hover:border-brand-sand-300 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between cursor-pointer h-full">
+
+  <!-- Card Image Container -->
+  <div class="relative rounded-2xl bg-slate-50/80 p-4 h-56 flex items-center justify-center overflow-hidden mb-4 border border-slate-100/70 group-hover:bg-brand-sand-50/50 transition-colors">
+
+    <!-- Discount Badge -->
+    @if (product().discountPercentage > 5) {
+      <span class="absolute top-3 left-3 px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md tracking-wider bg-rose-500 text-white shadow-xs">
+        -{{ product().discountPercentage | number:'1.0-0' }}%
+      </span>
+    }
+
+    <!-- Wishlist Button -->
+    <button
+      (click)="toggleWishlist($event)"
+      type="button"
+      aria-label="Save to wishlist"
+      class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-xs flex items-center justify-center transition-all focus:outline-hidden">
+      <svg
+        [class.fill-rose-500]="isInWishlist()"
+        [class.text-rose-500]="isInWishlist()"
+        class="w-4 h-4 transition-colors"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    </button>
+
+    <!-- Product Thumbnail Image -->
+    <img
+      [src]="product().thumbnail"
+      [alt]="product().title"
+      class="w-full h-full object-contain drop-shadow-sm group-hover:scale-108 transition-transform duration-300"
+      loading="lazy"
+    />
+
+    <!-- Quick View Overlay Button on Hover -->
+    <button
+      (click)="openQuickView($event)"
+      type="button"
+      class="absolute inset-x-4 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/95 backdrop-blur-xs text-slate-800 font-semibold text-xs py-2 rounded-xl shadow-md hover:bg-brand-teal-900 hover:text-white flex items-center justify-center gap-1.5 focus:outline-hidden">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      </svg>
+      Quick View
+    </button>
+  </div>
+
+  <!-- Product Details -->
+  <div>
+    <!-- Category & Star Rating Row -->
+    <div class="flex items-center justify-between mb-1.5 text-xs">
+      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+        {{ product().category }}
+      </span>
+      <div class="flex items-center gap-1 text-amber-500 font-semibold">
+        <svg class="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+        </svg>
+        <span>{{ product().rating }}</span>
+        <span class="text-slate-400 text-[11px] font-normal">(1.2k)</span>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-teal-900 transition-colors truncate mb-1" [title]="product().title">
+      {{ product().title }}
+    </h3>
+
+    @if (product().brand) {
+      <p class="text-xs text-slate-400 truncate mb-3">By {{ product().brand }}</p>
+    } @else {
+      <div class="h-4 mb-3"></div>
+    }
+
+    <!-- Price & Add to Cart Action -->
+    <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+      <div>
+        <span class="text-base font-extrabold text-brand-teal-950">
+          ${{ product().price.toFixed(2) }}
+        </span>
+        @if (product().discountPercentage > 0) {
+          <span class="block text-xs text-slate-400 line-through">
+            {{ formatOriginalPrice(product().price, product().discountPercentage) }}
+          </span>
+        }
+      </div>
+
+      <!-- Add to Cart CTA -->
+      <button
+        (click)="addToCart($event)"
+        type="button"
+        title="Add to cart"
+        class="px-3.5 py-2 rounded-xl bg-brand-teal-900 hover:bg-brand-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-brand-teal-950/20 hover:shadow-lg transition-all focus:outline-hidden hover:scale-105 active:scale-95">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+        <span>Add</span>
+      </button>
+    </div>
+  </div>
+
+</div>

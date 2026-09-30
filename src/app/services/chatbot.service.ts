@@ -276,24 +276,6 @@ export class ChatbotService {
     );
   }
 
-  /** Products of one category (used by category chips). */
-  browseCategory(slug: string, name?: string): Observable<BotReply> {
-    return this.http.get<ProductsResponse>(`${BASE}/category/${encodeURIComponent(slug)}?limit=5`).pipe(
-      map((res) => {
-        const products = res.products ?? [];
-        if (products.length === 0) {
-          return { text: `No products found in "${name ?? slug}" right now.` } satisfies BotReply;
-        }
-        return {
-          text: `Top picks in ${name ?? products[0].category}:`,
-          products: products.slice(0, 4),
-        } satisfies BotReply;
-      }),
-      catchError(() => of({ text: 'The catalog is unreachable right now. Please try again in a moment.' } satisfies BotReply)),
-      delay(REPLY_DELAY_MS)
-    );
-  }
-
   private reply(r: BotReply): Observable<BotReply> {
     return of(r).pipe(delay(REPLY_DELAY_MS));
   }

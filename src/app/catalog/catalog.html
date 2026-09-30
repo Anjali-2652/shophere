@@ -1,0 +1,65 @@
+<!-- Routed catalog page: /category/:slug, /deals, /new-arrivals, /best-sellers -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-16">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+    <a routerLink="/" class="hover:text-brand-teal-900 font-semibold">Home</a>
+    <span>/</span>
+    <span class="text-slate-800 font-bold">{{ title() }}</span>
+  </nav>
+
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ title() }}</h1>
+    <p class="text-sm text-slate-500 mt-1">{{ subtitle() }}</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+      @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+        <div class="bg-white rounded-3xl p-4 border border-slate-100 space-y-4">
+          <div class="h-56 bg-slate-100 rounded-2xl"></div>
+          <div class="h-4 bg-slate-100 rounded-md w-1/3"></div>
+          <div class="h-5 bg-slate-100 rounded-md w-3/4"></div>
+          <div class="h-8 bg-slate-100 rounded-xl"></div>
+        </div>
+      }
+    </div>
+  } @else if (error()) {
+    <div class="py-12 text-center bg-white rounded-3xl border border-slate-100">
+      <p class="text-base font-bold text-slate-800">Couldn't load products</p>
+      <p class="text-xs text-slate-500 mt-1">{{ error() }}</p>
+      <button (click)="retry()" type="button"
+        class="mt-4 px-5 py-2.5 bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-xs font-bold rounded-xl transition-colors">
+        Try Again
+      </button>
+    </div>
+  } @else if (products().length === 0) {
+    <div class="py-12 text-center bg-white rounded-3xl border border-slate-100">
+      <p class="text-base font-bold text-slate-800">No products found</p>
+      <p class="text-xs text-slate-500 mt-1">Try another category or view.</p>
+      <a routerLink="/"
+        class="inline-block mt-4 px-5 py-2.5 bg-brand-teal-900 hover:bg-brand-teal-800 text-white text-xs font-bold rounded-xl transition-colors">
+        Back to Home
+      </a>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      @for (product of products(); track product.id) {
+        <app-product-card [product]="product" (added)="onCardAdded($event)" />
+      }
+    </div>
+  }
+</section>
+
+<!-- Floating Toast Notification on Add -->
+@if (addedToast()) {
+  <div class="fixed bottom-6 right-6 z-50 bg-brand-teal-950 text-white px-4 py-3 rounded-2xl shadow-2xl border border-brand-teal-800 flex items-center gap-3 animate-in slide-in-from-bottom duration-200">
+    <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+      </svg>
+    </div>
+    <span class="text-xs font-semibold">{{ addedToast() }}</span>
+  </div>
+}

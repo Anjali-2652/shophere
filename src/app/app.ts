@@ -3,11 +3,12 @@ import { RouterOutlet } from '@angular/router';
 import { Navbar } from './navbar/navbar';
 import { Footer } from './footer/footer';
 import { Chatbot } from './chatbot/chatbot';
+import { QuickView } from './quick-view/quick-view';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, Navbar, Footer, Chatbot],
+  imports: [RouterOutlet, Navbar, Footer, Chatbot, QuickView],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

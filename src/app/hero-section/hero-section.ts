@@ -1,6 +1,5 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { ProductService } from '../services/product.service';
 
 @Component({
   selector: 'app-hero-section',
@@ -10,21 +9,15 @@ import { ProductService } from '../services/product.service';
 })
 export class HeroSection {
   private readonly router = inject(Router);
-  private readonly productService = inject(ProductService);
 
   /** Shop Now → real product grid (was a dead #explore anchor). */
   shopNow(): void {
     this.scrollToId('featured-products');
   }
 
-  /** Explore Deals → real discounted-products view (was a dead #deals anchor). */
+  /** Explore Deals → routed deals page (was a dead #deals anchor). */
   exploreDeals(): void {
-    this.productService.showDeals();
-    if (this.router.url !== '/') {
-      this.router.navigate(['/']).then(() => this.scrollToId('featured-products'));
-    } else {
-      this.scrollToId('featured-products');
-    }
+    this.router.navigate(['/deals']);
   }
 
   private scrollToId(id: string): void {
